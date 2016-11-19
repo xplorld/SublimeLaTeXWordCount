@@ -21,7 +21,9 @@ if settings.get("ignore_numbers"):
 else:
     word = "[\w-]+"
 word = re.compile(word, re.U)
-
+show_on_any_languages = False
+if settings.get("show_on_any_languages"):
+    show_on_any_languages = True
 
 def basic_wordcount(text):
     words = 0
@@ -151,9 +153,13 @@ class LatexWordCountBarViewer(sublime_plugin.EventListener):
         else:
             return str(count) + " " + plural
     def on_selection_modified(self, view):
+        if not show_on_any_languages:
+            language = find_language(view.settings().get("syntax")).group(1)
+            if language not in custom_wordcounters:
+                return
         scope, words, chars, total_chars, lines, language, language_as = count_in_view(view)
-        text = self.formatted_text(words, "alphabet", "alphabets")
-        text += ", " + self.formatted_text(chars, "char", "chars") 
+        text = self.formatted_text(words, "word", "words")
+        text += ", " + self.formatted_text(chars, "alphabet", "alphabets") 
         text += ", " + self.formatted_text(lines, "line", "lines")
         text += " in " + scope
         text += " as " + language_as

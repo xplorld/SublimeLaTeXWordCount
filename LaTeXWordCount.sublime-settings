@@ -5,7 +5,8 @@
 
 	// whether numbers should be ignored in the word count
 	"ignore_numbers": true,
-
+	// whether the status bar information will be shown in languages without a custom counter
+	"show_on_any_languages": false,
 	// customisable settings for word counts of LaTeX documents
 	"LaTeX": {
 
