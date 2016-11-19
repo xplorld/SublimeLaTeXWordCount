@@ -111,43 +111,62 @@ def wordcount_latex(text):
     text = text.replace("\\", "")
     return basic_wordcount(text.strip())
 
-
 find_language = re.compile(r"([\w -]+)\.(tmLanguage|sublime-syntax)").search
+
+def count_in_view(view):
+    selected = view.sel()
+    lines = len(view.lines(selected[0]))
+    scope = "selected region"
+    if len(selected) == 1 and selected[0].empty():
+        selected = [sublime.Region(0, view.size())]
+        lines = view.rowcol(view.size())[0] + 1
+        scope = "entire file"
+
+    # find any custom word counters
+    language = find_language(view.settings().get("syntax")).group(1)
+    language_as = language
+    wordcount_fn = custom_wordcounters.get(language, False)
+    if wordcount_fn:
+        language = "Using custom word counting for " + language
+    else:
+        language_as = "plain text"
+        language = "No custom support for " + \
+            language + " syntax, treating file as plain text"
+        wordcount_fn = basic_wordcount
+
+    total_chars = 0
+    words = 0
+    chars = 0
+    for region in selected:
+        (rwords, rchars, rtotal) = wordcount_fn(view.substr(region))
+        words += rwords
+        chars += rchars
+        total_chars += rtotal
+    return scope, words, chars, total_chars, lines, language, language_as
+
+class LatexWordCountBarViewer(sublime_plugin.EventListener):
+    def formatted_text(self, count, single, plural):
+        if count == 1:
+            return "1 " + single
+        else:
+            return str(count) + " " + plural
+    def on_selection_modified(self, view):
+        scope, words, chars, total_chars, lines, language, language_as = count_in_view(view)
+        text = self.formatted_text(words, "alphabet", "alphabets")
+        text += ", " + self.formatted_text(chars, "char", "chars") 
+        text += ", " + self.formatted_text(lines, "line", "lines")
+        text += " in " + scope
+        text += " as " + language_as
+        view.set_status("wordCount", text)
+
 
 
 class LatexWordCountCommand(sublime_plugin.TextCommand):
 
     def description(self):
         return "Display word count"
-
     def run(self, edit):
-        selected = self.view.sel()
-        lines = len(self.view.lines(selected[0]))
-        scope = "selected region"
-        if len(selected) == 1 and selected[0].empty():
-            selected = [sublime.Region(0, self.view.size())]
-            lines = self.view.rowcol(self.view.size())[0] + 1
-            scope = "entire file"
-
-        # find any custom word counters
-        language = find_language(self.view.settings().get("syntax")).group(1)
-        wordcount_fn = custom_wordcounters.get(language, False)
-        if wordcount_fn:
-            language = "Using custom word counting for " + language
-        else:
-            language = "No custom support for " + \
-                language + " syntax, treating file as plain text"
-            wordcount_fn = basic_wordcount
-
-        total_chars = 0
-        words = 0
-        chars = 0
-        for region in selected:
-            (rwords, rchars, rtotal) = wordcount_fn(self.view.substr(region))
-            words += rwords
-            chars += rchars
-            total_chars += rtotal
-
+        scope, words, chars, total_chars, lines, language, language_as = count_in_view(self.view)
         sublime.message_dialog('''\
 Word count for %s
 
